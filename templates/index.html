@@ -1,0 +1,798 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VAPT Chatbot</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+        }
+        .chat-container {
+            max-width: 900px;
+            margin: 30px auto;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+        .chat-header {
+            background: linear-gradient(135deg, #3a8ffe 0%, #0052cc 100%);
+            color: white;
+            padding: 15px 20px;
+            font-weight: 600;
+            font-size: 1.2rem;
+        }
+        .chat-messages {
+            height: 400px;
+            overflow-y: auto;
+            padding: 15px;
+            background-color: white;
+        }
+        .message {
+            margin-bottom: 15px;
+            padding: 10px 15px;
+            border-radius: 18px;
+            max-width: 75%;
+            position: relative;
+        }
+        .user-message {
+            background-color: #e6f2ff;
+            margin-left: auto;
+            border-bottom-right-radius: 0;
+        }
+        .bot-message {
+            background-color: #f0f0f0;
+            margin-right: auto;
+            border-bottom-left-radius: 0;
+        }
+        .chat-input {
+            display: flex;
+            padding: 15px;
+            background-color: white;
+            border-top: 1px solid #eaeaea;
+        }
+        .chat-input input {
+            flex-grow: 1;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            padding: 10px 15px;
+        }
+        .chat-input button {
+            margin-left: 10px;
+            border-radius: 20px;
+        }
+        .scan-button {
+            background-color: #ff5722;
+            color: white;
+            border: none;
+        }
+        .scan-button:hover {
+            background-color: #e64a19;
+            color: white;
+        }
+        .scan-results {
+            margin-top: 30px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+            padding: 20px;
+            display: none;
+        }
+        .scan-status {
+            margin-top: 20px;
+            display: none;
+        }
+        .scan-badge {
+            font-size: 0.8rem;
+            padding: 5px 10px;
+            border-radius: 12px;
+            margin-left: 10px;
+        }
+        .vulnerability-card {
+            margin-bottom: 15px;
+            border-left: 5px solid;
+        }
+        .vulnerability-high {
+            border-left-color: #dc3545;
+        }
+        .vulnerability-medium {
+            border-left-color: #fd7e14;
+        }
+        .vulnerability-low {
+            border-left-color: #20c997;
+        }
+        .spinner-border {
+            width: 1rem;
+            height: 1rem;
+            margin-right: 5px;
+        }
+        .result-section {
+            margin-bottom: 20px;
+        }
+        .tab-content {
+            padding: 15px;
+            border: 1px solid #dee2e6;
+            border-top: none;
+            border-radius: 0 0 5px 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="chat-container">
+            <div class="chat-header">
+                VAPT Security Chatbot
+                <span class="badge bg-danger scan-badge" id="scanBadge">SCAN READY</span>
+            </div>
+            <div class="chat-messages" id="chatMessages">
+                <div class="message bot-message">
+                    Hello! I'm your VAPT (Vulnerability Assessment and Penetration Testing) assistant. I can help you scan websites for security vulnerabilities. Just provide a URL and click the Scan button.
+                </div>
+            </div>
+            <div class="chat-input">
+                <input type="text" id="messageInput" class="form-control" placeholder="Enter website URL or ask a question...">
+                <button class="btn btn-primary" id="sendBtn">Send</button>
+                <button class="btn scan-button" id="scanBtn">Scan</button>
+            </div>
+        </div>
+        
+        <div class="scan-status" id="scanStatus">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <span class="spinner-border text-primary" role="status"></span>
+                        Scanning in progress
+                    </h5>
+                    <div class="progress">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" id="scanProgress" role="progressbar" style="width: 0%"></div>
+                    </div>
+                    <p class="card-text mt-2" id="scanInfo">Initializing scan...</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="scan-results" id="scanResults">
+            <h3>Vulnerability Assessment Report</h3>
+            <h5 id="scanUrl" class="text-muted mb-4"></h5>
+            
+            <ul class="nav nav-tabs" id="resultTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="summary-tab" data-bs-toggle="tab" data-bs-target="#summary" type="button" role="tab">Summary</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="vulnerabilities-tab" data-bs-toggle="tab" data-bs-target="#vulnerabilities" type="button" role="tab">Vulnerabilities</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="headers-tab" data-bs-toggle="tab" data-bs-target="#headers" type="button" role="tab">Headers</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="ports-tab" data-bs-toggle="tab" data-bs-target="#ports" type="button" role="tab">Ports</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="recommendations-tab" data-bs-toggle="tab" data-bs-target="#recommendations" type="button" role="tab">Recommendations</button>
+                </li>
+            </ul>
+            
+            <div class="tab-content" id="resultTabContent">
+                <div class="tab-pane fade show active" id="summary" role="tabpanel">
+                    <div class="alert alert-info" id="resultSummary"></div>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="card text-white bg-danger mb-3">
+                                <div class="card-header">High Risk</div>
+                                <div class="card-body">
+                                    <h5 class="card-title" id="highCount">0</h5>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card text-white bg-warning mb-3">
+                                <div class="card-header">Medium Risk</div>
+                                <div class="card-body">
+                                    <h5 class="card-title" id="mediumCount">0</h5>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card text-white bg-success mb-3">
+                                <div class="card-header">Low Risk</div>
+                                <div class="card-body">
+                                    <h5 class="card-title" id="lowCount">0</h5>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="tab-pane fade" id="vulnerabilities" role="tabpanel">
+                    <div id="vulnList"></div>
+                </div>
+                
+                <div class="tab-pane fade" id="headers" role="tabpanel">
+                    <div class="result-section">
+                        <h5>Security Headers</h5>
+                        <div id="securityHeaders"></div>
+                    </div>
+                    <div class="result-section">
+                        <h5>Cookies</h5>
+                        <div id="cookieInfo"></div>
+                    </div>
+                </div>
+                
+                <div class="tab-pane fade" id="ports" role="tabpanel">
+                    <table class="table table-striped" id="portTable">
+                        <thead>
+                            <tr>
+                                <th>Port</th>
+                                <th>Service</th>
+                                <th>Status</th>
+                                <th>Risk</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+                
+                <div class="tab-pane fade" id="recommendations" role="tabpanel">
+                    <div id="recommendationsList"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const chatMessages = document.getElementById('chatMessages');
+            const messageInput = document.getElementById('messageInput');
+            const sendBtn = document.getElementById('sendBtn');
+            const scanBtn = document.getElementById('scanBtn');
+            const scanStatus = document.getElementById('scanStatus');
+            const scanProgress = document.getElementById('scanProgress');
+            const scanInfo = document.getElementById('scanInfo');
+            const scanResults = document.getElementById('scanResults');
+            const scanUrl = document.getElementById('scanUrl');
+            const scanBadge = document.getElementById('scanBadge');
+            
+            let currentUrl = "";
+            let scanInterval = null;
+            
+            // Add a message to the chat
+            function addMessage(message, isUser) {
+                const messageDiv = document.createElement('div');
+                messageDiv.classList.add('message');
+                messageDiv.classList.add(isUser ? 'user-message' : 'bot-message');
+                messageDiv.textContent = message;
+                chatMessages.appendChild(messageDiv);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+            
+            // Send message to API
+            async function sendMessage(message) {
+                try {
+                    const response = await fetch('/api/chat', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ message })
+                    });
+                    
+                    const data = await response.json();
+                    addMessage(data.response, false);
+                    
+                    // If the message is a URL, store it for scanning
+                    if (message.match(/^https?:\/\//)) {
+                        currentUrl = message;
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    addMessage('Sorry, there was an error processing your request.', false);
+                }
+            }
+            
+            // Start scanning a URL
+            async function startScan() {
+                if (!currentUrl) {
+                    addMessage('Please enter a valid URL first.', false);
+                    return;
+                }
+                
+                try {
+                    const response = await fetch('/api/scan', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ url: currentUrl })
+                    });
+                    
+                    const data = await response.json();
+                    if (data.status === 'scan_started') {
+                        scanBadge.textContent = 'SCANNING';
+                        scanBadge.classList.remove('bg-danger');
+                        scanBadge.classList.add('bg-warning');
+                        
+                        scanStatus.style.display = 'block';
+                        addMessage(`Starting security scan for ${currentUrl}...`, false);
+                        
+                        // Start checking scan status
+                        startStatusChecking();
+                    } else {
+                        addMessage(`Error: ${data.error}`, false);
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    addMessage('Sorry, there was an error starting the scan.', false);
+                }
+            }
+            
+            // Check scan status periodically
+            function startStatusChecking() {
+                if (scanInterval) {
+                    clearInterval(scanInterval);
+                }
+                
+                scanInterval = setInterval(async function() {
+                    try {
+                        const response = await fetch('/api/scan/status');
+                        const data = await response.json();
+                        
+                        scanProgress.style.width = `${data.progress}%`;
+                        
+                        // Update status message based on progress
+                        if (data.progress < 30) {
+                            scanInfo.textContent = 'Running basic checks...';
+                        } else if (data.progress < 50) {
+                            scanInfo.textContent = 'Scanning ports...';
+                        } else if (data.progress < 70) {
+                            scanInfo.textContent = 'Analyzing with Ollama...';
+                        } else if (data.progress < 90) {
+                            scanInfo.textContent = 'Analyzing with ChatGPT...';
+                        } 
+                        else if (data.progress < 100) {
+                            scanInfo.textContent = 'Finalizing report...';
+                        }
+                        
+                        // Check if scan is complete
+                        if (data.status === 'completed') {
+                            clearInterval(scanInterval);
+                            scanInterval = null;
+                            
+                            scanBadge.textContent = 'SCAN COMPLETE';
+                            scanBadge.classList.remove('bg-warning');
+                            scanBadge.classList.add('bg-success');
+                            
+                            // Get final results
+                            fetchScanResults();
+                        } else if (data.status === 'error') {
+                            clearInterval(scanInterval);
+                            scanInterval = null;
+                            
+                            scanBadge.textContent = 'SCAN ERROR';
+                            scanBadge.classList.remove('bg-warning');
+                            scanBadge.classList.add('bg-danger');
+                            
+                            scanStatus.style.display = 'none';
+                            addMessage('Error during scanning. Please try again.', false);
+                        }
+                    } catch (error) {
+                        console.error('Error checking status:', error);
+                    }
+                }, 1000);
+            }
+            
+            // Fetch and display final scan results
+            async function fetchScanResults() {
+                try {
+                    const response = await fetch('/api/scan/results');
+                    const data = await response.json();
+                    
+                    displayScanResults(data);
+                    
+                    // Hide status, show results
+                    scanStatus.style.display = 'none';
+                    scanResults.style.display = 'block';
+                    
+                    // Notify in chat
+                    addMessage('Scan completed! I found ' + countVulnerabilities(data) + ' potential vulnerabilities. View the detailed report below.', false);
+                } catch (error) {
+                    console.error('Error fetching results:', error);
+                    addMessage('Error retrieving scan results.', false);
+                }
+            }
+            
+            // Count total vulnerabilities found
+            function countVulnerabilities(data) {
+                let count = 0;
+                
+                if (data.ollama_analysis && data.ollama_analysis.vulnerabilities) {
+                    count += data.ollama_analysis.vulnerabilities.length;
+                }
+                
+                if (data.chatgpt_analysis && data.chatgpt_analysis.vulnerabilities) {
+                    count += data.chatgpt_analysis.vulnerabilities.length;
+                }
+                
+                return count;
+            }
+            
+            // Format and display scan results
+            function displayScanResults(data) {
+                // Set URL
+                scanUrl.textContent = data.scan_data ? data.scan_data.url || currentUrl : currentUrl;
+                
+                // Set summary
+                let summaryText = '';
+                if (data.chatgpt_analysis && data.chatgpt_analysis.report_summary) {
+                    summaryText = data.chatgpt_analysis.report_summary;
+                } else if (data.ollama_analysis && data.ollama_analysis.overall_assessment) {
+                    summaryText = data.ollama_analysis.overall_assessment;
+                } else {
+                    summaryText = 'Security scan completed. See details in the tabs below.';
+                }
+                document.getElementById('resultSummary').textContent = summaryText;
+                
+                // Count vulnerabilities by severity
+                let highCount = 0, mediumCount = 0, lowCount = 0;
+                let vulnList = document.getElementById('vulnList');
+                vulnList.innerHTML = '';
+                
+                // Process Ollama vulnerabilities
+                if (data.ollama_analysis && data.ollama_analysis.vulnerabilities) {
+                    data.ollama_analysis.vulnerabilities.forEach(vuln => {
+                        // Count by severity
+                        if (vuln.severity && vuln.severity.toLowerCase() === 'high') {
+                            highCount++;
+                        } else if (vuln.severity && vuln.severity.toLowerCase() === 'medium') {
+                            mediumCount++;
+                        } else {
+                            lowCount++;
+                        }
+                        
+                        // Add to vulnerability list
+                        let card = document.createElement('div');
+                        card.className = `card vulnerability-card mb-3 vulnerability-${vuln.severity ? vuln.severity.toLowerCase() : 'low'}`;
+                        
+                        card.innerHTML = `
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <strong>${vuln.type || 'Unknown Vulnerability'}</strong>
+                                <span class="badge ${getSeverityBadgeClass(vuln.severity)}">${vuln.severity || 'Low'}</span>
+                            </div>
+                            <div class="card-body">
+                                <p>${vuln.description || 'No description available'}</p>
+                                <h6>Recommendation:</h6>
+                                <p>${vuln.recommendation || 'No specific recommendation available'}</p>
+                            </div>
+                        `;
+                        
+                        vulnList.appendChild(card);
+                    });
+                }
+                
+                // Process ChatGPT vulnerabilities
+                if (data.chatgpt_analysis && data.chatgpt_analysis.vulnerabilities) {
+                    data.chatgpt_analysis.vulnerabilities.forEach(vuln => {
+                        // Determine severity from CVSS if available
+                        let severity = 'low';
+                        if (vuln.cvss) {
+                            if (vuln.cvss >= 7.0) severity = 'high';
+                            else if (vuln.cvss >= 4.0) severity = 'medium';
+                        }
+                        
+                        // Count by severity
+                        if (severity === 'high') highCount++;
+                        else if (severity === 'medium') mediumCount++;
+                        else lowCount++;
+                        
+                        // Add to vulnerability list
+                        let card = document.createElement('div');
+                        card.className = `card vulnerability-card mb-3 vulnerability-${severity}`;
+                        
+                        card.innerHTML = `
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <strong>${vuln.name || 'Unknown Vulnerability'}</strong>
+                                <span class="badge ${getSeverityBadgeClass(severity)}">
+                                    ${severity.charAt(0).toUpperCase() + severity.slice(1)} ${vuln.cvss ? '(CVSS: ' + vuln.cvss + ')' : ''}
+                                </span>
+                            </div>
+                            <div class="card-body">
+                                <p>${vuln.description || 'No description available'}</p>
+                                <h6>Recommendation:</h6>
+                                <p>${vuln.remediation || 'No specific recommendation available'}</p>
+                            </div>
+                        `;
+                        
+                        vulnList.appendChild(card);
+                    });
+                }
+                
+                // Update count displays
+                document.getElementById('highCount').textContent = highCount;
+                document.getElementById('mediumCount').textContent = mediumCount;
+                document.getElementById('lowCount').textContent = lowCount;
+                
+                // Display security headers
+                let securityHeaders = document.getElementById('securityHeaders');
+                securityHeaders.innerHTML = '';
+                
+                if (data.scan_data && data.scan_data.basic_scan && data.scan_data.basic_scan.security_headers) {
+                    let table = document.createElement('table');
+                    table.className = 'table table-sm';
+                    
+                    let thead = document.createElement('thead');
+                    thead.innerHTML = `
+                        <tr>
+                            <th>Header</th>
+                            <th>Value</th>
+                            <th>Status</th>
+                        </tr>
+                    `;
+                    table.appendChild(thead);
+                    
+                    let tbody = document.createElement('tbody');
+                    
+                    for (const [header, value] of Object.entries(data.scan_data.basic_scan.security_headers)) {
+                        let row = document.createElement('tr');
+                        
+                        let headerCell = document.createElement('td');
+                        headerCell.textContent = header;
+                        
+                        let valueCell = document.createElement('td');
+                        valueCell.textContent = value;
+                        
+                        let statusCell = document.createElement('td');
+                        if (value === 'Not set') {
+                            statusCell.innerHTML = '<span class="badge bg-danger">Missing</span>';
+                        } else {
+                            statusCell.innerHTML = '<span class="badge bg-success">Set</span>';
+                        }
+                        
+                        row.appendChild(headerCell);
+                        row.appendChild(valueCell);
+                        row.appendChild(statusCell);
+                        tbody.appendChild(row);
+                    }
+                    
+                    table.appendChild(tbody);
+                    securityHeaders.appendChild(table);
+                } else {
+                    securityHeaders.textContent = 'No security header information available';
+                }
+                
+                // Display cookie info
+                let cookieInfo = document.getElementById('cookieInfo');
+                cookieInfo.innerHTML = '';
+                
+                if (data.scan_data && data.scan_data.basic_scan && data.scan_data.basic_scan.cookies && data.scan_data.basic_scan.cookies.length > 0) {
+                    let table = document.createElement('table');
+                    table.className = 'table table-sm';
+                    
+                    let thead = document.createElement('thead');
+                    thead.innerHTML = `
+                        <tr>
+                            <th>Name</th>
+                            <th>Secure</th>
+                            <th>HttpOnly</th>
+                            <th>SameSite</th>
+                        </tr>
+                    `;
+                    table.appendChild(thead);
+                    
+                    let tbody = document.createElement('tbody');
+                    
+                    data.scan_data.basic_scan.cookies.forEach(cookie => {
+                        let row = document.createElement('tr');
+                        
+                        let nameCell = document.createElement('td');
+                        nameCell.textContent = cookie.name;
+                        
+                        let secureCell = document.createElement('td');
+                        secureCell.innerHTML = cookie.secure ? 
+                            '<span class="badge bg-success">Yes</span>' : 
+                            '<span class="badge bg-danger">No</span>';
+                        
+                        let httpOnlyCell = document.createElement('td');
+                        httpOnlyCell.innerHTML = cookie.httponly ? 
+                            '<span class="badge bg-success">Yes</span>' : 
+                            '<span class="badge bg-danger">No</span>';
+                        
+                        let sameSiteCell = document.createElement('td');
+                        sameSiteCell.innerHTML = cookie.samesite ? 
+                            '<span class="badge bg-success">Yes</span>' : 
+                            '<span class="badge bg-danger">No</span>';
+                        
+                        row.appendChild(nameCell);
+                        row.appendChild(secureCell);
+                        row.appendChild(httpOnlyCell);
+                        row.appendChild(sameSiteCell);
+                        tbody.appendChild(row);
+                    });
+                    
+                    table.appendChild(tbody);
+                    cookieInfo.appendChild(table);
+                } else {
+                    cookieInfo.textContent = 'No cookie information available';
+                }
+                
+                // Display port scan results
+                let portTable = document.getElementById('portTable').querySelector('tbody');
+                portTable.innerHTML = '';
+                
+                if (data.scan_data && data.scan_data.port_scan) {
+                    for (const [port, info] of Object.entries(data.scan_data.port_scan)) {
+                        if (info.status === 'open') {
+                            let row = document.createElement('tr');
+                            
+                            let portCell = document.createElement('td');
+                            portCell.textContent = port;
+                            
+                            let serviceCell = document.createElement('td');
+                            serviceCell.textContent = info.service;
+                            
+                            let statusCell = document.createElement('td');
+                            statusCell.innerHTML = '<span class="badge bg-danger">Open</span>';
+                            
+                            let riskCell = document.createElement('td');
+                            // Assess risk level based on port
+                            let riskLevel = 'Low';
+                            let riskBadge = 'bg-success';
+                            
+                            if (['21', '22', '23', '3389'].includes(port)) {
+                                riskLevel = 'High';
+                                riskBadge = 'bg-danger';
+                            } else if (!['80', '443'].includes(port)) {
+                                riskLevel = 'Medium';
+                                riskBadge = 'bg-warning';
+                            }
+                            
+                            riskCell.innerHTML = `<span class="badge ${riskBadge}">${riskLevel}</span>`;
+                            
+                            row.appendChild(portCell);
+                            row.appendChild(serviceCell);
+                            row.appendChild(statusCell);
+                            row.appendChild(riskCell);
+                            portTable.appendChild(row);
+                        }
+                    }
+                    
+                    if (portTable.childElementCount === 0) {
+                        let row = document.createElement('tr');
+                        let cell = document.createElement('td');
+                        cell.colSpan = 4;
+                        cell.textContent = 'No open ports detected other than standard web ports';
+                        row.appendChild(cell);
+                        portTable.appendChild(row);
+                    }
+                } else {
+                    let row = document.createElement('tr');
+                    let cell = document.createElement('td');
+                    cell.colSpan = 4;
+                    cell.textContent = 'No port scan information available';
+                    row.appendChild(cell);
+                    portTable.appendChild(row);
+                }
+                
+                // Display recommendations
+                let recommendationsList = document.getElementById('recommendationsList');
+                recommendationsList.innerHTML = '';
+                
+                let recommendations = [];
+                
+                // Collect recommendations from Ollama
+                if (data.ollama_analysis && data.ollama_analysis.vulnerabilities) {
+                    data.ollama_analysis.vulnerabilities.forEach(vuln => {
+                        if (vuln.recommendation) {
+                            recommendations.push({
+                                text: vuln.recommendation,
+                                severity: vuln.severity || 'low'
+                            });
+                        }
+                    });
+                }
+                
+                // Collect recommendations from ChatGPT
+                if (data.chatgpt_analysis && data.chatgpt_analysis.vulnerabilities) {
+                    data.chatgpt_analysis.vulnerabilities.forEach(vuln => {
+                        if (vuln.remediation) {
+                            let severity = 'low';
+                            if (vuln.cvss) {
+                                if (vuln.cvss >= 7.0) severity = 'high';
+                                else if (vuln.cvss >= 4.0) severity = 'medium';
+                            }
+                            
+                            recommendations.push({
+                                text: vuln.remediation,
+                                severity: severity
+                            });
+                        }
+                    });
+                }
+                
+                // Sort recommendations by severity (high to low)
+                recommendations.sort((a, b) => {
+                    const severityOrder = { 'high': 0, 'medium': 1, 'low': 2 };
+                    return severityOrder[a.severity] - severityOrder[b.severity];
+                });
+                
+                // Display recommendations
+                if (recommendations.length > 0) {
+                    let list = document.createElement('div');
+                    list.className = 'list-group';
+                    
+                    recommendations.forEach((rec, index) => {
+                        let item = document.createElement('div');
+                        item.className = 'list-group-item d-flex justify-content-between align-items-center';
+                        
+                        let content = document.createElement('div');
+                        content.innerHTML = `
+                            <strong>${index + 1}.</strong> ${rec.text}
+                        `;
+                        
+                        let badge = document.createElement('span');
+                        badge.className = `badge ${getSeverityBadgeClass(rec.severity)}`;
+                        badge.textContent = rec.severity.charAt(0).toUpperCase() + rec.severity.slice(1);
+                        
+                        item.appendChild(content);
+                        item.appendChild(badge);
+                        list.appendChild(item);
+                    });
+                    
+                    recommendationsList.appendChild(list);
+                } else {
+                    recommendationsList.textContent = 'No specific recommendations available';
+                }
+            }
+            
+            function getSeverityBadgeClass(severity) {
+                if (!severity) return 'bg-secondary';
+                
+                switch (severity.toLowerCase()) {
+                    case 'high':
+                        return 'bg-danger';
+                    case 'medium':
+                        return 'bg-warning';
+                    case 'low':
+                        return 'bg-success';
+                    default:
+                        return 'bg-secondary';
+                }
+            }
+            
+            // Event listeners
+            sendBtn.addEventListener('click', function() {
+                const message = messageInput.value.trim();
+                if (message) {
+                    addMessage(message, true);
+                    sendMessage(message);
+                    messageInput.value = '';
+                }
+            });
+            
+            messageInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    sendBtn.click();
+                }
+            });
+            
+            scanBtn.addEventListener('click', function() {
+                const url = messageInput.value.trim();
+                
+                if (url && url.match(/^https?:\/\//)) {
+                    currentUrl = url;
+                    addMessage(url, true);
+                    messageInput.value = '';
+                    startScan();
+                } else if (currentUrl) {
+                    startScan();
+                } else {
+                    addMessage('Please enter a valid URL first.', false);
+                }
+            });
+        });
+    </script>
+</body>
+</html>
